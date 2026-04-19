@@ -6,7 +6,7 @@
 | protect-mcp | [scopeblind/scopeblind-gateway](https://github.com/scopeblind/scopeblind-gateway) | Claimed | @tomjwxf | Claude Code hooks + MCP gateway. Operator-signed mode. |
 | protect-mcp-adk | [scopeblind/protect-mcp-adk](https://github.com/scopeblind/protect-mcp-adk) | Claimed | @tomjwxf | Google ADK BasePlugin. Python. |
 | aps-governance-hook | [aeoess/hermes-aps-delegation](https://github.com/aeoess/hermes-aps-delegation) (pending 0.1.0) | Claimed | @aeoess | Authority-chain-referenced mode with delegation_chain_root. |
-| Signet | TBD | Under review | @willamhou | Added to AGT Tutorial 33 via [microsoft/agent-governance-toolkit#1201](https://github.com/microsoft/agent-governance-toolkit/pull/1201); conformance under confirmation. |
+| Signet | [Prismer-AI/signet](https://github.com/Prismer-AI/signet) | Self-certification template staged | @willamhou | Conformance template pre-filled at [conformance/signet/](./conformance/signet/) for maintainer sign-off. Wire format shares JCS + Ed25519 with draft-02; four documented deltas (envelope shape, signature prefix, chain linkage by ID vs hash, key identifier) are adapter-addressable. Context: [microsoft/agent-governance-toolkit#1201](https://github.com/microsoft/agent-governance-toolkit/pull/1201). |
 
 ## How to add an implementation
 
