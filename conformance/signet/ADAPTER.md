@@ -2,7 +2,7 @@
 
 Pseudocode for a thin shim that translates a Signet receipt (as emitted by `Prismer-AI/signet@main` at the date of this PR) into a draft-farley-acta-signed-receipts-02 envelope verifiable against `@veritasacta/verify`.
 
-**Status:** Sketch only. Production implementation is out of scope for this template. Provided so the Signet maintainer can evaluate whether the adapter path is thin enough to pursue, or whether native alignment (Path 3 on [microsoft/agent-governance-toolkit#1201](https://github.com/microsoft/agent-governance-toolkit/pull/1201)) is the better move.
+**Status:** Sketch. The Signet maintainer has confirmed the co-signer shape below and committed to shipping this as a `--emit-draft02` flag on `signet sign` (main repo), plus an in-workspace `signet-draft02-adapter` crate. Production implementation is scheduled on the Signet side; this file remains as the architectural reference. Open questions at the bottom are resolved.
 
 ## Input
 
@@ -50,17 +50,31 @@ def signet_to_draft02(signet_receipt: dict, operator_signer: Ed25519Signer) -> d
         # See DEVIATIONS.md section 3.
         payload["previousReceiptHash"] = resolve_prior_hash(action["parent_receipt_id"])
 
-    # Optional: map policy_attestation -> policy_digest/policy_id
+    # Map PolicyAttestation -> policy_digest / policy_id / decision.
+    # Signet's PolicyAttestation struct uses policy_name and policy_hash.
     if signet_receipt.get("policy"):
         policy = signet_receipt["policy"]
-        payload["policy_id"] = policy.get("id")
-        payload["policy_digest"] = policy.get("digest")
+        payload["policy_id"] = policy.get("policy_name")
+        payload["policy_digest"] = policy.get("policy_hash")
+        if policy.get("decision"):
+            payload["decision"] = policy["decision"]
+        # Suggested: attestation_evidence extension for richer fields
+        if policy.get("matched_rules") or policy.get("reason"):
+            payload["attestation_evidence"] = {
+                "matched_rules": policy.get("matched_rules", []),
+                "reason": policy.get("reason"),
+            }
 
-    # Optional: map authorization -> holder_binding (AIP-0003)
+    # Map Authorization -> holder_binding (AIP-0003).
+    # Signet's Authorization struct: { chain, chain_hash, root_pubkey }.
+    # Only chain_hash and root_pubkey enter the signed scope; full chain
+    # is carried for storage and dropped at adapt time.
     if signet_receipt.get("authorization"):
+        auth = signet_receipt["authorization"]
         payload["holder_binding"] = {
-            "mode": "jwk_thumbprint",  # Adjust based on Signet's auth shape
-            "thumbprint": jwk_thumbprint(signet_receipt["authorization"]),
+            "mode": "jwk_thumbprint",
+            "thumbprint": jwk_thumbprint_of_ed25519_pubkey(auth["root_pubkey"]),
+            "delegation_chain_hash": auth["chain_hash"],
         }
 
     # Re-sign under draft-02 canonicalization (JCS RFC 8785, AIP-0001 ASCII-keys)
@@ -108,10 +122,14 @@ That is achievable but constrains Signet's field set (cannot include fields that
 
 **Co-sign mode is the recommended default.** Transcode mode is a design conversation for Path 3 (native alignment), not for an adapter.
 
-## Open questions for the Signet maintainer
+## Signet maintainer answers
 
-1. Does a co-sign adapter make sense as a Signet feature flag (emit both Signet-native and draft-02 envelopes per operation), or as an out-of-tree tool?
-2. Would a Rust-native adapter (`signet-draft02-adapter` crate) be accepted upstream into the Signet workspace?
-3. Is the operator's private key accessible at the adapter site, or is co-signing constrained by key-custody boundaries?
+Resolved in the review of [VeritasActa/agt-integration-profile#1](https://github.com/VeritasActa/agt-integration-profile/pull/1):
 
-The answers shape whether the adapter lives in the Signet repo, this repo, or as a third-party crate.
+1. **Feature flag.** The co-signer emits as a `--emit-draft02` flag on `signet sign`. When set, both the Signet-native envelope and the draft-02 envelope are produced per operation. Lives in the main Signet repo (discoverable, tested in the main CI).
+
+2. **In-workspace adapter crate.** A `signet-draft02-adapter` crate is welcome inside the Signet Cargo workspace. Timing depends on the conformance bar; maintainer will prioritise after field mapping is confirmed (confirmed by this PR).
+
+3. **Co-signer mode is the right default.** The operator private key is accessible at the adapter site, so the adapter can produce a draft-02 envelope that verifies under the operator's public key. No cross-custody complications at the adapter site.
+
+The adapter therefore lives in the Signet main repo (not this repo, not third-party). This repo retains the architectural reference (this file) and the normative field mapping ([`FIELD-MAPPING.md`](./FIELD-MAPPING.md)).

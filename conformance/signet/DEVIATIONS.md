@@ -60,12 +60,9 @@ Four deltas that require adapter handling but do not affect semantic conformance
 
 **Adapter direction (Signet -> draft-02):** Compute the SHA-256 of the canonicalized Signet prior receipt at adapter time and emit as `previousReceiptHash`. The adapter MUST have access to the prior receipt (or its hash) to emit this field.
 
-**For Signet self-certification:** this is the most significant semantic delta. Two reasonable positions:
+**Maintainer preference (selected).** The Signet maintainer has chosen **Option 2**: add a `parent_hash` field alongside `parent_receipt_id`. Dual-mode, additive, low-effort. Both fields coexist on the wire. Signet-native verifiers continue to use `parent_receipt_id`; draft-02 verifiers use `parent_hash`.
 
-1. **Declare partial conformance at T1 minus chain-linkage.** Signet receipts verify as individual signed artifacts but do not carry tamper-evident chain linkage in the draft-02 sense. An operator wanting tamper-evident chain linkage uses the adapter.
-2. **Add a `parent_hash` field alongside `parent_receipt_id`.** Dual-mode: Signet-native verifiers keep using IDs; draft-02 verifiers use the hash. Zero-cost additive change.
-
-Maintainer preference welcome.
+**Signet-side implementation note.** This requires the signer to have access to the prior receipt's canonical bytes at sign time; the signer API needs a minor extension to accept (or compute) the parent hash. Scheduled for an upcoming Signet point release. Once shipped, this deviation collapses to "emit `parent_hash` on the wire, read it on the draft-02 side", and the adapter's chain-linkage step becomes zero-cost.
 
 ## 4. Key identifier: pubkey string vs JWK thumbprint
 
@@ -91,7 +88,7 @@ Not a blocker for conformance; just a real constraint on what the adapter emits.
 |---|---|---|
 | Envelope shape | Structural | ~10 lines, boilerplate. |
 | Signature encoding | Cosmetic | ~5 lines, strip prefix + re-encode. |
-| Chain linkage (ID vs hash) | Semantic | Most significant. Either accept partial conformance or add a dual `parent_hash` field in Signet. |
+| Chain linkage (ID vs hash) | Semantic | Resolved. Signet is adding `parent_hash` alongside `parent_receipt_id` in an upcoming point release; dual-mode, zero-cost after the point release ships. |
 | Key identifier (pubkey vs thumbprint) | Policy | Adapter MUST NOT emit raw pubkey. External key discovery is the verification path. |
 
 None of these deltas are structural blockers to conformance. All are adapter-addressable; two could be additionally softened by thin Signet-side extensions.
